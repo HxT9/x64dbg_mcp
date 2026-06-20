@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using ModelContextProtocol.Server;
 
 namespace X64DbgMcp;
@@ -125,11 +126,23 @@ public static class X64DbgTools
         => client.CallJsonAsync("process_list");
 
     [McpServerTool(Name = "dbg_attach")]
-    [Description("Attach the debugger to a running process by PID.")]
-    public static Task<string> Attach(
+    [Description("Attach the debugger to a running process by PID. Guarded: if already attached to that same PID it is a no-op; if attached to a different target it refuses (detach/stop first) — re-attaching to the active debuggee would kill it.")]
+    public static async Task<string> Attach(
         X64DbgClient client,
         [Description("Process id (decimal) to attach to.")] int pid)
-        => client.CallJsonAsync("exec", new { cmd = $"attach {pid:X}" });
+    {
+        // Re-issuing 'attach' while already debugging the target terminates the
+        // process, so check the current session first.
+        var status = await client.CallAsync("status");
+        if (status.TryGetProperty("debugging", out var dbg) && dbg.GetBoolean())
+        {
+            int curPid = status.TryGetProperty("pid", out var p) ? p.GetInt32() : 0;
+            if (curPid == pid)
+                return $"{{\"ok\":true,\"noop\":true,\"message\":\"already attached to PID {pid}\"}}";
+            return $"{{\"ok\":false,\"error\":\"already debugging PID {curPid}; detach (dbg_detach) or stop (dbg_stop) before attaching to PID {pid}\"}}";
+        }
+        return await client.CallJsonAsync("exec", new { cmd = $"attach {pid:X}" });
+    }
 
     [McpServerTool(Name = "dbg_detach")]
     [Description("Detach from the current debuggee, leaving it running.")]
