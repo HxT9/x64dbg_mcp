@@ -1,0 +1,12 @@
+# C++ / CMake
+plugin/build/
+plugin/build-*/
+
+# .NET
+mcp/bin/
+mcp/obj/
+mcp/out/
+mcp/app/
+
+# misc
+*.user
