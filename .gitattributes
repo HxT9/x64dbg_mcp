@@ -1,0 +1,9 @@
+* text=auto
+
+*.hpp text
+*.cpp text
+*.h text
+*.cs text
+*.csproj text
+*.ps1 text
+*.md text
